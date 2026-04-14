@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.FormCheck" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/court_brown</item>
+    </style>
+</resources>
