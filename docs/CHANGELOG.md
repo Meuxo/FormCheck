@@ -266,3 +266,41 @@ and what could not be completed and why.
 - "Wrist smoothness" from the spec is not reported separately. Bounce-interval variation and
   fumbles cover fluidity; a jerk metric from noisy wrist landmarks would mostly measure pose noise.
 - Two-ball drills are not supported.
+
+## Phase 8: Vertical jump measurement
+
+**Done**
+- `JumpAnalyzer` with two independent methods:
+  1. Flight time (primary): takeoff = both toes rise above the floor line, landing = first toe back,
+     both with linear sub-frame interpolation. The bias from calling a toe "off" only above a small
+     threshold is added back using the takeoff speed (`JumpPhysics.correctedFlightSec`).
+     h = g·t²/8.
+  2. Hip rise (secondary): hip midpoint above its takeoff height, scaled by the user's height.
+- Agreement within 10% is stated in the note. Disagreement shows both values and lowers confidence.
+- Landing check: knee or ankle angle more than 15° different between takeoff and landing flags
+  "landing form affected the result" and lowers confidence.
+- Also measured: countermovement depth (smallest knee angle before takeoff), takeoff velocity
+  (g·t/2), left/right takeoff timing difference (front view only), and estimated max reach
+  (standing reach + jump height, labelled as an estimate).
+- Expected accuracy is computed per jump from the clip's frame rate (about g·t/(4·fps), roughly
+  ±1 cm at 120 fps and ±4 cm at 30 fps) and shown in the note: "frame-rate limited, not lab grade".
+  Clips below 55 fps carry a warning and half confidence.
+- Recording uses CameraX `HighSpeedVideoSessionConfig` with slow motion off (real-time timestamps)
+  when the device supports it, otherwise the highest normal frame rate up to 60. Imported
+  slow-motion files are converted to real time from the container's capture rate.
+- Best of the attempts in a clip is the headline. Each attempt is listed and opens playback at its
+  takeoff frame, with takeoff and landing frames as evidence. Personal best comes from the metrics table.
+- Jump height is also measured automatically on every jump shot in form and shootaround sessions.
+- Test types: standing (countermovement), no-step, max approach.
+
+**Verified**
+- 48 unit tests pass. New `JumpAnalyzerTest`: best of 3 at 120 fps recovers the best flight
+  (0.55 s → height within 1.5 cm, flight within 12 ms), the hip method agrees within 10%,
+  countermovement depth 110° ±1°, takeoff velocity, max reach; a tucked landing is flagged with
+  lower confidence; 30 fps warns, lowers confidence and stays within the stated band; front view
+  measures symmetry.
+
+**Not completed / notes**
+- Live jump mode is replaced by record-then-analyze-immediately. Android high-speed sessions allow
+  only Preview + VideoCapture, so frames cannot be analysed during a 120/240 fps recording.
+- "Personal best" includes jump heights measured on jump shots in other modes.

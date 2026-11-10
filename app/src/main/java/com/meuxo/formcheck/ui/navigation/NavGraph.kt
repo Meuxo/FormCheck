@@ -36,6 +36,9 @@ import com.meuxo.formcheck.ui.screens.CalibrationScreen
 import com.meuxo.formcheck.ui.screens.ShootaroundSections
 import com.meuxo.formcheck.ui.screens.DrillPicker
 import com.meuxo.formcheck.ui.screens.DribbleSections
+import com.meuxo.formcheck.ui.screens.JumpSections
+import com.meuxo.formcheck.ui.screens.JumpTestPicker
+import com.meuxo.formcheck.domain.model.MetricId
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -118,11 +121,15 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
         composable(Routes.MODE, listOf(navArgument("type") { type = NavType.StringType })) { e ->
             val t = SessionType.valueOf(e.arguments?.getString("type") ?: "FORM")
             var drill by rememberSaveable { mutableStateOf<String?>(if (t == SessionType.DRIBBLE) "pound_right" else null) }
-            ModeScreen(t, onBack = { nav.popBackStack() }, onRecord = { nav.navigate(Routes.capture(t, drill)) },
+            var jump by rememberSaveable { mutableStateOf(com.meuxo.formcheck.domain.model.JumpTest.COUNTERMOVEMENT) }
+            ModeScreen(t, onBack = { nav.popBackStack() }, onRecord = { nav.navigate(Routes.capture(t, drill, if (t == SessionType.JUMP) jump.name else null)) },
                 onLive = if (t == SessionType.SHOOTAROUND || t == SessionType.DRIBBLE) ({ nav.navigate(Routes.live(t, drill)) }) else null,
                 onEvent = nav::handle,
-                extraParams = { it.copy(drillId = drill) },
-                header = { if (t == SessionType.DRIBBLE) DrillPicker(drill) { drill = it } })
+                extraParams = { it.copy(drillId = drill, jumpTest = if (t == SessionType.JUMP) jump else null) },
+                header = {
+                    if (t == SessionType.DRIBBLE) DrillPicker(drill) { drill = it }
+                    if (t == SessionType.JUMP) JumpTestPicker(jump) { jump = it }
+                })
         }
         composable(Routes.CAPTURE, listOf(navArgument("type") { type = NavType.StringType },
             navArgument("drill") { type = NavType.StringType; defaultValue = "" },
@@ -155,6 +162,7 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
                             onRecalibrate = { from -> nav.navigate(Routes.calibrate(id, from)) },
                             onReplayShot = { s -> nav.navigate(Routes.playback(id, s.releaseFrame ?: s.startFrame, null, s.index)) })
                         SessionType.DRIBBLE -> DribbleSections(r)
+                        SessionType.JUMP -> JumpSections(r, st, vm) { a -> nav.navigate(Routes.playback(id, a.startFrame, MetricId.JUMP_HEIGHT.name, a.index)) }
                         else -> Unit
                     }
                 }

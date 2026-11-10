@@ -63,6 +63,8 @@ class SessionDataViewModel @Inject constructor(
 
     fun reanalyze() = scheduler.enqueue(id)
 
+    fun history(metric: com.meuxo.formcheck.domain.model.MetricId) = repo.observeMetricHistory(metric.name)
+
     fun correctOutcome(shotIndex: Int, outcome: ShotOutcome) = viewModelScope.launch {
         repo.correctOutcome(id, shotIndex, outcome); reload()
     }

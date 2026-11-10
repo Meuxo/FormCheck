@@ -26,7 +26,8 @@ class SessionAnalyzer @Inject constructor() {
             SessionType.FORM -> form(clip, profile)
             SessionType.SHOOTAROUND -> com.meuxo.formcheck.shootaround.ShootaroundAnalyzer.analyze(clip, profile, params.court)
             SessionType.DRIBBLE -> com.meuxo.formcheck.dribble.DribbleAnalyzer.analyze(clip, com.meuxo.formcheck.dribble.DrillLibrary.byId(params.drillId))
-            else -> unsupported(clip, params.type)
+            SessionType.JUMP -> com.meuxo.formcheck.jump.JumpAnalyzer.analyze(clip, params.jumpTest, profile.heightM,
+                params.standingReachCm ?: settings.standingReachCm)
         }
     }
 
@@ -38,12 +39,6 @@ class SessionAnalyzer @Inject constructor() {
         return finish(clip, SessionType.FORM, a.view?.view, a.view?.confidence ?: 0.0, a.hand, a.warnings, consistency, a.shots, headline,
             scaleNote = a.shooterScale?.let { "Distances scaled from ${it.source.label}." })
     }
-
-    private fun unsupported(clip: TrackedClip, type: SessionType) = SessionResult(
-        type, System.currentTimeMillis(), clip.fps, clip.width, clip.height, clip.frames.size, null, 0.0, null,
-        listOf("${type.label} analysis is not available in this build."), emptyList(), emptyList(),
-        OverallScore(null, 0, 0), null, null
-    )
 
     companion object {
         fun finish(
