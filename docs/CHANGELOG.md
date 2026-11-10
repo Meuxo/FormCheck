@@ -231,3 +231,38 @@ and what could not be completed and why.
   it starts. With a stationary phone this gives the same homography and avoids a second camera
   session.
 - The live overlay assumes the preview and analysis streams have the same aspect ratio.
+
+## Phase 7: Dribbling practice
+
+**Done**
+- `DrillLibrary`: pound (each hand), crossover, between the legs, behind the back, in and out,
+  figure 8, low/high alternation, each with description, target duration and expected pattern.
+  Two-ball pound is listed as not supported.
+- `DribbleAnalyzer`:
+  - 3 s standing calibration of hip height above the floor line.
+  - Bounces are down→up reversals of ball motion within a band above the floor.
+  - Metrics: stance height (% of standing hip height) and knee angle; dribble height (apex as %
+    of hip height, scored against the drill's height target); ball protection (proxy: below the
+    waist, outside the knee, off arm up; labelled as a proxy); rhythm variation (coefficient of
+    variation of bounce intervals); fumbles (ball far from both hands > 0.3 s with no bounce);
+    eyes up (proxy from head pitch, labelled); pace; left/right dribble counts; drill accuracy per
+    pattern.
+  - View gating: knee angle needs side or angled; side-of-body metrics (protection, crossover and
+    in-out accuracy) need a front view. Each gate gives a Not measured reason.
+- Live: `DribbleLiveLogic` runs the standing calibration live, then gives "Get lower" / "Eyes up"
+  voice cues (TextToSpeech, at most one every 4 s, toggle in settings). Sessions save to the
+  Library like everything else, and the recording is analysed in full afterwards.
+- Results use the same dashboard with a drill summary card on top.
+
+**Verified**
+- 44 unit tests pass. New `DribbleTest` on a synthetic front-view crossover: pace 2/s, 100% drill
+  accuracy, low rhythm variation, no fumbles, apex height recovered within 2% of hip height, stance
+  below standing, knee angle correctly Not measured in front view; same-side bouncing scores 0% on
+  a crossover; no standing calibration means every metric is Not measured and there is no overall score.
+
+**Not completed / notes**
+- Between-the-legs, behind-the-back and figure 8 are judged on side switches only. Telling
+  them apart from a plain crossover needs ball depth, which one camera does not give reliably.
+- "Wrist smoothness" from the spec is not reported separately. Bounce-interval variation and
+  fumbles cover fluidity; a jerk metric from noisy wrist landmarks would mostly measure pose noise.
+- Two-ball drills are not supported.

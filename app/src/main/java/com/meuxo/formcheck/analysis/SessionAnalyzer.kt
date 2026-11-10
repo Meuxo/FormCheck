@@ -25,6 +25,7 @@ class SessionAnalyzer @Inject constructor() {
         return when (params.type) {
             SessionType.FORM -> form(clip, profile)
             SessionType.SHOOTAROUND -> com.meuxo.formcheck.shootaround.ShootaroundAnalyzer.analyze(clip, profile, params.court)
+            SessionType.DRIBBLE -> com.meuxo.formcheck.dribble.DribbleAnalyzer.analyze(clip, com.meuxo.formcheck.dribble.DrillLibrary.byId(params.drillId))
             else -> unsupported(clip, params.type)
         }
     }

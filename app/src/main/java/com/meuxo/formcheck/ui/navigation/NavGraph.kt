@@ -34,10 +34,16 @@ import com.meuxo.formcheck.ui.screens.TutorialScreen
 import com.meuxo.formcheck.ui.screens.LiveCaptureScreen
 import com.meuxo.formcheck.ui.screens.CalibrationScreen
 import com.meuxo.formcheck.ui.screens.ShootaroundSections
+import com.meuxo.formcheck.ui.screens.DrillPicker
+import com.meuxo.formcheck.ui.screens.DribbleSections
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 
 /** Live logic per mode; null means overlay only. */
 fun liveLogicFor(t: SessionType): com.meuxo.formcheck.live.LiveLogic? = when (t) {
     SessionType.SHOOTAROUND -> com.meuxo.formcheck.live.ShootaroundLiveLogic()
+    SessionType.DRIBBLE -> com.meuxo.formcheck.live.DribbleLiveLogic()
     else -> null
 }
 
@@ -45,7 +51,7 @@ object Routes {
     const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val MODE = "mode/{type}"
-    const val CAPTURE = "capture/{type}"
+    const val CAPTURE = "capture/{type}?drill={drill}&jump={jump}"
     const val PERSON = "person/{id}"
     const val ANALYSIS = "analysis/{id}"
     const val RESULTS = "results/{id}"
@@ -53,12 +59,12 @@ object Routes {
     const val LIBRARY = "library"
     const val PROGRESS = "progress"
     const val TUTORIAL = "tutorial"
-    const val LIVE = "live/{type}"
+    const val LIVE = "live/{type}?drill={drill}"
     const val CALIBRATE = "calibrate/{id}?from={from}"
 
     fun mode(t: SessionType) = "mode/${t.name}"
-    fun capture(t: SessionType) = "capture/${t.name}"
-    fun live(t: SessionType) = "live/${t.name}"
+    fun capture(t: SessionType, drill: String? = null, jump: String? = null) = "capture/${t.name}?drill=${drill ?: ""}&jump=${jump ?: ""}"
+    fun live(t: SessionType, drill: String? = null) = "live/${t.name}?drill=${drill ?: ""}"
     fun calibrate(id: Long, from: Int = 0) = "calibrate/$id?from=$from"
     fun person(id: Long) = "person/$id"
     fun analysis(id: Long) = "analysis/$id"
@@ -111,13 +117,20 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
         }
         composable(Routes.MODE, listOf(navArgument("type") { type = NavType.StringType })) { e ->
             val t = SessionType.valueOf(e.arguments?.getString("type") ?: "FORM")
-            ModeScreen(t, onBack = { nav.popBackStack() }, onRecord = { nav.navigate(Routes.capture(t)) },
-                onLive = if (t == SessionType.SHOOTAROUND || t == SessionType.DRIBBLE) ({ nav.navigate(Routes.live(t)) }) else null,
-                onEvent = nav::handle)
+            var drill by rememberSaveable { mutableStateOf<String?>(if (t == SessionType.DRIBBLE) "pound_right" else null) }
+            ModeScreen(t, onBack = { nav.popBackStack() }, onRecord = { nav.navigate(Routes.capture(t, drill)) },
+                onLive = if (t == SessionType.SHOOTAROUND || t == SessionType.DRIBBLE) ({ nav.navigate(Routes.live(t, drill)) }) else null,
+                onEvent = nav::handle,
+                extraParams = { it.copy(drillId = drill) },
+                header = { if (t == SessionType.DRIBBLE) DrillPicker(drill) { drill = it } })
         }
-        composable(Routes.CAPTURE, listOf(navArgument("type") { type = NavType.StringType })) { e ->
+        composable(Routes.CAPTURE, listOf(navArgument("type") { type = NavType.StringType },
+            navArgument("drill") { type = NavType.StringType; defaultValue = "" },
+            navArgument("jump") { type = NavType.StringType; defaultValue = "" })) { e ->
             val t = SessionType.valueOf(e.arguments?.getString("type") ?: "FORM")
-            CaptureScreen(t, onEvent = nav::handle)
+            val drill = e.arguments?.getString("drill")?.takeIf { it.isNotEmpty() }
+            val jump = e.arguments?.getString("jump")?.takeIf { it.isNotEmpty() }?.let { runCatching { com.meuxo.formcheck.domain.model.JumpTest.valueOf(it) }.getOrNull() }
+            CaptureScreen(t, onEvent = nav::handle, extraParams = { it.copy(drillId = drill, jumpTest = jump ?: it.jumpTest) })
         }
         composable(Routes.PERSON, idArg) { e ->
             val id = e.arguments!!.getLong("id")
@@ -141,6 +154,7 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
                         SessionType.SHOOTAROUND -> ShootaroundSections(r, st, vm, selectShot,
                             onRecalibrate = { from -> nav.navigate(Routes.calibrate(id, from)) },
                             onReplayShot = { s -> nav.navigate(Routes.playback(id, s.releaseFrame ?: s.startFrame, null, s.index)) })
+                        SessionType.DRIBBLE -> DribbleSections(r)
                         else -> Unit
                     }
                 }
@@ -160,9 +174,12 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
                 onBack = { nav.popBackStack() }
             )
         }
-        composable(Routes.LIVE, listOf(navArgument("type") { type = NavType.StringType })) { e ->
+        composable(Routes.LIVE, listOf(navArgument("type") { type = NavType.StringType },
+            navArgument("drill") { type = NavType.StringType; defaultValue = "" })) { e ->
             val t = SessionType.valueOf(e.arguments?.getString("type") ?: "SHOOTAROUND")
-            LiveCaptureScreen(t, logic = { liveLogicFor(t) }, voiceCues = s.voiceCues, onEvent = nav::handle)
+            val drill = e.arguments?.getString("drill")?.takeIf { it.isNotEmpty() }
+            LiveCaptureScreen(t, logic = { liveLogicFor(t) }, voiceCues = s.voiceCues, onEvent = nav::handle,
+                extraParams = { it.copy(drillId = drill) })
         }
         composable(Routes.CALIBRATE, listOf(
             navArgument("id") { type = NavType.LongType },
