@@ -334,3 +334,26 @@ and what could not be completed and why.
 
 **Not completed / notes**
 - Not checked with TalkBack or at 200% font scale on a device.
+
+## Phase 10: Validation, tests and README
+
+**Done**
+- `validation/`: format, measuring instructions (frame-by-frame hand measurement), an empty
+  `ground_truth.csv` and a `clips/` folder. Both are packaged as androidTest assets.
+- `ValidationAccuracyTest` (instrumented): runs the real pipeline (MediaCodec, MediaPipe, ball
+  tracking, analysis) on every validation clip and reports MAE per metric, counting Not measured
+  separately. It **skips** when there is no ground truth, so an empty set is never reported as accurate.
+- README rewritten: ground rules, modes, view table, accuracy (real-footage table explicitly empty;
+  synthetic-data results; expected jump accuracy by frame rate), architecture diagram (Mermaid)
+  and package map, build and test steps, known limitations, links to the audit, changelog and model
+  docs and licenses.
+
+**Verified**
+- Clean `assembleDebug`, `testDebugUnitTest` (52 tests, 0 failures, 0 skipped) and
+  `assembleDebugAndroidTest` all succeed.
+
+**Not completed, and why**
+- **No validation clips or ground truth.** They require filming real shots and measuring them by
+  hand. Inventing values would break rule 1. The README accuracy table is empty until this is done.
+- **No demo GIFs.** They need the app running on a phone; no device or emulator image was available.
+- **Instrumented tests not run** for the same reason (they compile).
