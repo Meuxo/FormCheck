@@ -184,3 +184,50 @@ and what could not be completed and why.
   and rim-plane quantities use the rim. Using the 10 ft rim height would also need the floor
   under the rim, which is usually out of frame.
 - Detection accuracy on real footage is unmeasured until validation clips exist (phase 10).
+
+## Phase 6: Shootaround mode
+
+**Done**
+- `ShootaroundAnalyzer`:
+  - An attempt is the ball leaving the hands (held within the last 0.7 s, then no longer near a
+    wrist) while rising above the shooter's head.
+  - Make/miss: the ball crosses the rim plane downward inside the opening and then appears in the
+    net area within 600 ms → Make. It comes down outside the rim, bounces away, or never reaches
+    rim height → Miss. Anything else (lost below the rim, rim contact unclear, no rim located) →
+    Uncertain, with a reason. A flight ends when the ball is back in someone's hands.
+  - Arc per attempt (RANSAC fit, drawn as a trail in playback) and the full per-shot form
+    dashboard via `FormShotAnalyzer.shotMetrics`.
+  - Location: ankle midpoint on the last frame before takeoff (or at release for a set shot),
+    projected through a homography from at least 4 tapped court points. Court sizes:
+    high school, college, NBA (`CourtGeometry`, with approximate corner dimensions flagged).
+    Zones: paint, midrange left/center/right, corner threes, wing threes, top of key.
+  - If the rim moves (camera moved), location stops after that frame and the results offer
+    "recalibrate from the moment the phone moved". Recalibration re-runs analysis on the saved
+    tracking data without decoding the video again.
+  - Session metrics: attempts, makes, FG% (uncertain excluded and counted in the note), longest
+    streak, consistency.
+- One-tap outcome corrections are saved in Room and result.json, recounted, and counted
+  ("N corrected by you").
+- UI: calibration screen (rim edge taps, court size, guided court points on a diagram, skip
+  allowed), shot chart (filled circle = make, ✕ = miss, ring = uncertain, so shape and colour both
+  signal), zone table, makes-vs-misses comparison of release angle, entry angle and timing
+  (with n), per-shot list with replay and corrections.
+- Live mode (`LiveEngine`, `LiveCaptureScreen`, shared with dribbling): Preview + ImageAnalysis +
+  VideoCapture in one session. Ball detection every analysed frame at 640×480, pose every second
+  frame. If processing stays below 15 fps after 3 s, live processing stops and the session
+  continues as record-now-analyze-after. If the camera cannot bind all three use cases, it records
+  only. Live counts are labelled as a preview; the recording is always analysed in full.
+
+**Verified**
+- 40 unit tests pass. New `ShootaroundTest`: zone boundaries (including a 21 ft corner shot being a
+  two in the NBA and a three in high school), make vs miss vs uncertain on synthetic flights,
+  nothing judged without a rim, FG% excluding uncertain, homography location (paint shot lands at
+  (0, 11) ft), recount after a correction, location paused after camera movement.
+
+**Not completed / notes**
+- The 24+ fps live target could not be measured without a device. The fallback to record-only is
+  implemented and keyed to the measured processing rate.
+- Calibration happens on a frame of the recording (after a live session ends) rather than before
+  it starts. With a stationary phone this gives the same homography and avoids a second camera
+  session.
+- The live overlay assumes the preview and analysis streams have the same aspect ratio.

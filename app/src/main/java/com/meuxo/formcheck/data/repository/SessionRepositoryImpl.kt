@@ -85,7 +85,8 @@ class SessionRepositoryImpl @Inject constructor(
         dao.correctOutcome(id, shotIndex, outcome.name)
         val r = files.readResult(id) ?: return
         val shots = r.shots.map { if (it.index == shotIndex) it.copy(outcome = outcome, outcomeCorrected = true) else it }
-        saveAnalysis(id, r.copy(shots = shots), files.thumb(id).exists())
+        val updated = com.meuxo.formcheck.shootaround.ShootaroundAnalyzer.recount(r.copy(shots = shots))
+        saveAnalysis(id, updated, files.thumb(id).exists())
     }
 
     override fun observeTotalBytes(): Flow<Long> = dao.observeTotalBytes()

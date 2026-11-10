@@ -68,6 +68,7 @@ fun ModeScreen(
     type: SessionType,
     onBack: () -> Unit,
     onRecord: () -> Unit,
+    onLive: (() -> Unit)? = null,
     onEvent: (NewSessionEvent) -> Unit,
     extraParams: (SessionParams) -> SessionParams = { it },
     header: @Composable () -> Unit = {},
@@ -93,8 +94,11 @@ fun ModeScreen(
             Text("Filming", style = MaterialTheme.typography.titleMedium)
             type.filmingGuide().forEach { Text("• $it") }
             Spacer(Modifier.height(8.dp))
+            if (onLive != null) Button(onClick = onLive, enabled = !busy, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                Icon(Icons.Default.Videocam, null); Spacer(Modifier.size(8.dp)); Text("Live session (records too)")
+            }
             Button(onClick = onRecord, enabled = !busy, modifier = Modifier.fillMaxWidth().height(56.dp)) {
-                Icon(Icons.Default.Videocam, null); Spacer(Modifier.size(8.dp)); Text("Record")
+                Icon(Icons.Default.Videocam, null); Spacer(Modifier.size(8.dp)); Text(if (onLive != null) "Record, analyze after" else "Record")
             }
             OutlinedButton(
                 onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },

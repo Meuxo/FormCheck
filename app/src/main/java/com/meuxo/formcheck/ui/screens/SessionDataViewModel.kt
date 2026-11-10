@@ -44,11 +44,15 @@ class SessionDataViewModel @Inject constructor(
 
     val media: File get() = files.media(id)
 
+    private val _params = MutableStateFlow<com.meuxo.formcheck.domain.model.SessionParams?>(null)
+    val params = _params.asStateFlow()
+
     init { reload() }
 
     fun reload() = viewModelScope.launch {
         try {
             _result.value = files.readResult(id)
+            _params.value = files.readParams(id)
         } catch (t: Throwable) { _error.value = "Could not read results: ${t.message}" }
     }
 

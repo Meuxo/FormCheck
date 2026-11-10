@@ -31,6 +31,15 @@ import com.meuxo.formcheck.ui.screens.ProgressScreen
 import com.meuxo.formcheck.ui.screens.ResultsScreen
 import com.meuxo.formcheck.ui.screens.SettingsViewModel
 import com.meuxo.formcheck.ui.screens.TutorialScreen
+import com.meuxo.formcheck.ui.screens.LiveCaptureScreen
+import com.meuxo.formcheck.ui.screens.CalibrationScreen
+import com.meuxo.formcheck.ui.screens.ShootaroundSections
+
+/** Live logic per mode; null means overlay only. */
+fun liveLogicFor(t: SessionType): com.meuxo.formcheck.live.LiveLogic? = when (t) {
+    SessionType.SHOOTAROUND -> com.meuxo.formcheck.live.ShootaroundLiveLogic()
+    else -> null
+}
 
 object Routes {
     const val ONBOARDING = "onboarding"
@@ -44,9 +53,13 @@ object Routes {
     const val LIBRARY = "library"
     const val PROGRESS = "progress"
     const val TUTORIAL = "tutorial"
+    const val LIVE = "live/{type}"
+    const val CALIBRATE = "calibrate/{id}?from={from}"
 
     fun mode(t: SessionType) = "mode/${t.name}"
     fun capture(t: SessionType) = "capture/${t.name}"
+    fun live(t: SessionType) = "live/${t.name}"
+    fun calibrate(id: Long, from: Int = 0) = "calibrate/$id?from=$from"
     fun person(id: Long) = "person/$id"
     fun analysis(id: Long) = "analysis/$id"
     fun results(id: Long) = "results/$id"
@@ -58,7 +71,7 @@ object Routes {
 fun NavHostController.handle(e: NewSessionEvent) {
     when (e) {
         is NewSessionEvent.PickPerson -> navigate(Routes.person(e.id)) { popUpTo(Routes.HOME) }
-        is NewSessionEvent.Calibrate -> navigate(Routes.analysis(e.id)) { popUpTo(Routes.HOME) }
+        is NewSessionEvent.Calibrate -> navigate(Routes.calibrate(e.id)) { popUpTo(Routes.HOME) }
         is NewSessionEvent.Analyzing -> navigate(Routes.analysis(e.id)) { popUpTo(Routes.HOME) }
         is NewSessionEvent.Failed -> Unit
     }
@@ -98,7 +111,9 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
         }
         composable(Routes.MODE, listOf(navArgument("type") { type = NavType.StringType })) { e ->
             val t = SessionType.valueOf(e.arguments?.getString("type") ?: "FORM")
-            ModeScreen(t, onBack = { nav.popBackStack() }, onRecord = { nav.navigate(Routes.capture(t)) }, onEvent = nav::handle)
+            ModeScreen(t, onBack = { nav.popBackStack() }, onRecord = { nav.navigate(Routes.capture(t)) },
+                onLive = if (t == SessionType.SHOOTAROUND || t == SessionType.DRIBBLE) ({ nav.navigate(Routes.live(t)) }) else null,
+                onEvent = nav::handle)
         }
         composable(Routes.CAPTURE, listOf(navArgument("type") { type = NavType.StringType })) { e ->
             val t = SessionType.valueOf(e.arguments?.getString("type") ?: "FORM")
@@ -106,7 +121,9 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
         }
         composable(Routes.PERSON, idArg) { e ->
             val id = e.arguments!!.getLong("id")
-            PersonPickScreen(id, onChosen = { nav.navigate(Routes.analysis(id)) { popUpTo(Routes.HOME) } })
+            PersonPickScreen(id, onChosen = { t ->
+                nav.navigate(if (t == SessionType.SHOOTAROUND) Routes.calibrate(id) else Routes.analysis(id)) { popUpTo(Routes.HOME) }
+            })
         }
         composable(Routes.ANALYSIS, idArg) {
             AnalysisProgressScreen(
@@ -116,7 +133,18 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
         }
         composable(Routes.RESULTS, idArg) { e ->
             val id = e.arguments!!.getLong("id")
-            ResultsScreen(onBack = { nav.popBackStack() }, onPlayback = { f, m, shot -> nav.navigate(Routes.playback(id, f, m?.id?.name, shot)) })
+            ResultsScreen(
+                onBack = { nav.popBackStack() },
+                onPlayback = { f, m, shot -> nav.navigate(Routes.playback(id, f, m?.id?.name, shot)) },
+                typeSections = { r, st, vm, selectShot ->
+                    when (r.type) {
+                        SessionType.SHOOTAROUND -> ShootaroundSections(r, st, vm, selectShot,
+                            onRecalibrate = { from -> nav.navigate(Routes.calibrate(id, from)) },
+                            onReplayShot = { s -> nav.navigate(Routes.playback(id, s.releaseFrame ?: s.startFrame, null, s.index)) })
+                        else -> Unit
+                    }
+                }
+            )
         }
         composable(Routes.PLAYBACK, listOf(
             navArgument("id") { type = NavType.LongType },
@@ -131,6 +159,17 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
                 shotIndex = a.getInt("shot").takeIf { it >= 0 },
                 onBack = { nav.popBackStack() }
             )
+        }
+        composable(Routes.LIVE, listOf(navArgument("type") { type = NavType.StringType })) { e ->
+            val t = SessionType.valueOf(e.arguments?.getString("type") ?: "SHOOTAROUND")
+            LiveCaptureScreen(t, logic = { liveLogicFor(t) }, voiceCues = s.voiceCues, onEvent = nav::handle)
+        }
+        composable(Routes.CALIBRATE, listOf(
+            navArgument("id") { type = NavType.LongType },
+            navArgument("from") { type = NavType.IntType; defaultValue = 0 }
+        )) { e ->
+            val id = e.arguments!!.getLong("id")
+            CalibrationScreen(id, e.arguments!!.getInt("from"), onDone = { nav.navigate(Routes.analysis(id)) { popUpTo(Routes.HOME) } })
         }
         composable(Routes.LIBRARY) { LibraryScreen(onBack = { nav.popBackStack() }, onOpen = { nav.openSession(it) }) }
         composable(Routes.PROGRESS) { ProgressScreen(onBack = { nav.popBackStack() }) }

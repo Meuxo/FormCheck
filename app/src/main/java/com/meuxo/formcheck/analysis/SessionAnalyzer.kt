@@ -24,6 +24,7 @@ class SessionAnalyzer @Inject constructor() {
         )
         return when (params.type) {
             SessionType.FORM -> form(clip, profile)
+            SessionType.SHOOTAROUND -> com.meuxo.formcheck.shootaround.ShootaroundAnalyzer.analyze(clip, profile, params.court)
             else -> unsupported(clip, params.type)
         }
     }

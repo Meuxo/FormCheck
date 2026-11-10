@@ -48,6 +48,7 @@ data class ShotResult(
     val arc: ArcSummary? = null,
     val outcome: ShotOutcome? = null,
     val outcomeCorrected: Boolean = false,
+    val outcomeReason: String? = null,
     /** Court coordinates in feet (origin: centre of baseline, +y toward half court). */
     val courtX: Double? = null,
     val courtY: Double? = null,

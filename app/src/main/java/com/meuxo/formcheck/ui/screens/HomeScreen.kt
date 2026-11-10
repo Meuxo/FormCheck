@@ -62,7 +62,7 @@ class HomeViewModel @Inject constructor(repository: SessionRepository) : ViewMod
 }
 
 /** Modes wired up in this build. */
-val AVAILABLE_MODES = setOf(SessionType.FORM)
+val AVAILABLE_MODES = setOf(SessionType.FORM, SessionType.SHOOTAROUND)
 
 fun SessionType.icon(): ImageVector = when (this) {
     SessionType.FORM -> Icons.Default.SportsBasketball

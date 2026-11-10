@@ -67,7 +67,9 @@ class AnalysisWorker @AssistedInject constructor(
             var lastPct = -1
             val info = com.meuxo.formcheck.tracking.pipeline.VideoFrameDecoder().probe(media)
             val thumbAtUs = info.durationUs / 2
-            val clip = tracker.track(
+            val reuse = inputData.getBoolean(KEY_REUSE_TRACK, false)
+            val saved = if (reuse) files.readTrack(id) else null
+            val clip = if (saved != null) withUserRim(saved, p) else tracker.track(
                 media,
                 ClipTracker.Options(
                     trackBall = p.type != SessionType.JUMP,
@@ -86,7 +88,7 @@ class AnalysisWorker @AssistedInject constructor(
                 }
             )
             // Thumbnail: one frame at the midpoint, decoded separately so no bitmap is kept alive.
-            thumbnailAt(media, thumbAtUs)?.let { files.writeThumb(id, it); it.recycle() }
+            if (saved == null) thumbnailAt(media, thumbAtUs)?.let { files.writeThumb(id, it); it.recycle() }
 
             val result = analyzer.analyze(clip, p, user)
             files.writeTrack(id, clip)
@@ -101,6 +103,15 @@ class AnalysisWorker @AssistedInject constructor(
             repository.setStatus(id, SessionStatus.FAILED, t.message ?: t.javaClass.simpleName)
             Result.failure(workDataOf(KEY_ERROR to (t.message ?: "Analysis failed")))
         }
+    }
+
+    /** Applies rim taps made after tracking (recalibration) to a saved clip. */
+    private fun withUserRim(c: com.meuxo.formcheck.tracking.TrackedClip, p: com.meuxo.formcheck.domain.model.SessionParams): com.meuxo.formcheck.tracking.TrackedClip {
+        val l = p.rimLeft ?: return c
+        val r = p.rimRight ?: return c
+        val rim = com.meuxo.formcheck.tracking.RimObs(((l.x + r.x) / 2 * c.width).toFloat(), ((l.y + r.y) / 2 * c.height).toFloat(),
+            (kotlin.math.abs(r.x - l.x) * c.width).toFloat(), 1f, com.meuxo.formcheck.tracking.RimSource.USER_TAP)
+        return com.meuxo.formcheck.tracking.TrackedClip(c.width, c.height, c.frames, rim, c.rimMovedAtFrame, c.timeScale)
     }
 
     private fun thumbnailAt(file: java.io.File, timeUs: Long): Bitmap? {
@@ -140,6 +151,8 @@ class AnalysisWorker @AssistedInject constructor(
         const val KEY_SESSION = "sessionId"
         const val KEY_PROGRESS = "progress"
         const val KEY_ERROR = "error"
+        /** Re-run analysis on the saved track (after recalibration) instead of decoding again. */
+        const val KEY_REUSE_TRACK = "reuseTrack"
         private const val CHANNEL = "analysis"
         fun uniqueName(id: Long) = "analyze-$id"
     }
@@ -151,12 +164,12 @@ data class AnalysisProgress(val state: WorkInfo.State?, val percent: Int, val er
 class AnalysisScheduler @Inject constructor(@ApplicationContext private val context: Context) {
     private val wm get() = WorkManager.getInstance(context)
 
-    fun enqueue(sessionId: Long) {
+    fun enqueue(sessionId: Long, reuseTrack: Boolean = false) {
         val req = OneTimeWorkRequestBuilder<AnalysisWorker>()
-            .setInputData(workDataOf(AnalysisWorker.KEY_SESSION to sessionId))
+            .setInputData(workDataOf(AnalysisWorker.KEY_SESSION to sessionId, AnalysisWorker.KEY_REUSE_TRACK to reuseTrack))
             .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .build()
-        wm.enqueueUniqueWork(AnalysisWorker.uniqueName(sessionId), ExistingWorkPolicy.KEEP, req)
+        wm.enqueueUniqueWork(AnalysisWorker.uniqueName(sessionId), if (reuseTrack) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP, req)
     }
 
     fun cancel(sessionId: Long) { wm.cancelUniqueWork(AnalysisWorker.uniqueName(sessionId)) }
