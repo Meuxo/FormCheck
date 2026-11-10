@@ -24,3 +24,6 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Downloaded on-device models (see docs/MODELS.md)
+app/src/main/assets/models/
