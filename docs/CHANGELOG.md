@@ -116,3 +116,29 @@ and what could not be completed and why.
   compile but were not exercised at runtime here.
 - The export overlay assumes Transformer hands the overlay upright frames. Rotated source files
   need a check on a device.
+
+## Phase 4: Score dashboard
+
+**Done**
+- `ScoreDashboard` (reusable for form, shootaround and dribbling): large overall ring with the
+  percentage, its band, and "from N of M metrics" (unmeasured metrics are left out, never
+  guessed); a "biggest fix" card for the lowest scoring measured metric with one specific tip
+  (`FixTips`); one row per metric with name, value and unit (user's units), percentage bar,
+  three-dot confidence indicator, and an info dialog giving the description, target range,
+  source kind (physics / published data / coaching convention / app heuristic), source text
+  and scoring rule.
+- Bands: green 80–100, yellow 60–79, red below 60, gray for Not measured, plus a separate "no
+  target" state for measured metrics without a defensible range. Every state has its own icon
+  and always shows the number, so colour is never the only signal. Rows have merged content
+  descriptions for TalkBack.
+- Tapping a row or the biggest-fix card opens Playback at the evidence key frame with the angle
+  drawn on the overlay and buttons for the evidence start, key and end frames.
+- Results screen: view, frame rate, hand and scale source; a "what limited this analysis" card;
+  shot selector for multi-shot sessions; session-level metrics (consistency) under the shot dashboard.
+
+**Verified**
+- `assembleDebug` succeeds; 34 unit tests pass (new `BandTest` pins the 80/60 cutoffs, gray for Not
+  measured, and distinct icons per band).
+
+**Not completed / notes**
+- Visual layout was not checked on a device (no emulator here).

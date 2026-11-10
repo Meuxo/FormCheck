@@ -116,7 +116,7 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
         }
         composable(Routes.RESULTS, idArg) { e ->
             val id = e.arguments!!.getLong("id")
-            ResultsScreen(onBack = { nav.popBackStack() }, onPlayback = { f, m -> nav.navigate(Routes.playback(id, f, m?.id?.name, m?.shotIndex)) })
+            ResultsScreen(onBack = { nav.popBackStack() }, onPlayback = { f, m, shot -> nav.navigate(Routes.playback(id, f, m?.id?.name, shot)) })
         }
         composable(Routes.PLAYBACK, listOf(
             navArgument("id") { type = NavType.LongType },

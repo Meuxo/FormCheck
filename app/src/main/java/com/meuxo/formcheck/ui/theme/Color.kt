@@ -9,6 +9,9 @@ val CourtOrangeLight = Color(0xFFFFA040)
 val CourtWhite = Color(0xFFFFFFFF)
 val CourtCream = Color(0xFFFFF8E1)
 
-val ScoreGood = Color(0xFF4CAF50)
-val ScoreWarn = Color(0xFFFFC107)
-val ScoreBad = Color(0xFFF44336)
+// Dashboard bands (spec 4): green 80–100, yellow 60–79, red below 60, gray not measured.
+// Colour is never the only signal: every row also shows the number and an icon.
+val ScoreGood = Color(0xFF43A047)
+val ScoreWarn = Color(0xFFF9A825)
+val ScoreBad = Color(0xFFE53935)
+val ScoreNone = Color(0xFF9E9E9E)
