@@ -304,3 +304,33 @@ and what could not be completed and why.
 - Live jump mode is replaced by record-then-analyze-immediately. Android high-speed sessions allow
   only Preview + VideoCapture, so frames cannot be analysed during a 120/240 fps recording.
 - "Personal best" includes jump heights measured on jump shots in other modes.
+
+## Phase 9: Additions
+
+**Done**
+- Camera setup guide on the record screen: live checks for whole body in frame (pose every 10th
+  frame, with hints such as "feet are cut off"), lighting (mean luma), and phone steadiness
+  (gyroscope below 0.05 rad/s for 1 s), plus the mode's recommended view. It runs only when the
+  camera supports analysis alongside recording; in jump high-speed mode only the steadiness check runs.
+- Progress: per-metric trend across all modes, personal bests (direction-aware; metrics with no
+  defensible "best", such as release height, are excluded), weekly summary (sessions, makes,
+  average score), weekly makes goal progress, and day streak. The weekly card is also on Home.
+- Drill recommendations from the lowest-scoring measured metrics (never from Not measured ones),
+  shown on results. Dribble suggestions point at drills in the library.
+- Best vs worst shot: side-by-side looping playback of the highest and lowest scoring shots with
+  overlays, slow motion, and the five biggest metric differences.
+- Settings: units, shooting hand, height, standing reach, ball size, court size, voice cues,
+  weekly makes goal, storage used, delete all sessions (with confirmation).
+- Tutorial rewritten so every target matches `ScoringConfig` and states its source kind. The
+  v1 "film from 45°" advice is replaced by side/front guidance and a note to avoid 45°.
+- Accessibility: content descriptions on icons, charts and dashboard rows; minimum (not fixed)
+  heights on large buttons so large text does not clip; no information carried by colour alone
+  (icons, numbers and shot-chart shapes).
+- Permission rationale screens for the camera, with a settings link after permanent denial.
+
+**Verified**
+- `assembleDebug` succeeds; 52 unit tests pass (new `ProgressStatsTest`: direction-aware personal
+  bests, weekly summary and goal, day streak, drill recommendations only from measured low scores).
+
+**Not completed / notes**
+- Not checked with TalkBack or at 200% font scale on a device.

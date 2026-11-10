@@ -55,10 +55,12 @@ import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 @HiltViewModel
-class HomeViewModel @Inject constructor(repository: SessionRepository) : ViewModel() {
+class HomeViewModel @Inject constructor(repository: SessionRepository, settings: com.meuxo.formcheck.data.settings.SettingsRepository) : ViewModel() {
     val recent: StateFlow<List<Session>> = repository.observeAll()
         .map { it.take(5) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val progress = kotlinx.coroutines.flow.combine(repository.observeAllMeasuredMetrics(), repository.observeAll(), settings.settings) { r, s, st -> ProgressData(r, s, st) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 }
 
 /** Modes wired up in this build. */
@@ -90,6 +92,7 @@ fun HomeScreen(
     vm: HomeViewModel = hiltViewModel()
 ) {
     val recent by vm.recent.collectAsState()
+    val progress by vm.progress.collectAsState()
     Scaffold(topBar = {
         TopAppBar(
             title = { Text("FormCheck", style = MaterialTheme.typography.headlineMedium) },
@@ -127,6 +130,7 @@ fun HomeScreen(
                     TextButton(onClick = onTutorial) { Icon(Icons.Default.School, null); Spacer(Modifier.size(6.dp)); Text("How to film") }
                 }
             }
+            progress?.takeIf { it.sessions.isNotEmpty() }?.let { p -> item { WeeklyCard(p) } }
             if (recent.isNotEmpty()) {
                 item { Text("Recent", style = MaterialTheme.typography.titleMedium) }
                 items(recent, key = { it.id }) { s -> SessionRow(s, onClick = { onOpenSession(s) }) }

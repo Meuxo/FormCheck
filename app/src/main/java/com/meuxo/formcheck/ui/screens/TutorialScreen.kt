@@ -49,7 +49,7 @@ private val tutorialSteps = listOf(
         tips = listOf(
             "Feet shoulder-width apart for a stable base",
             "Shooting foot slightly forward (1–2 inches)",
-            "Knees bent at roughly 100°–160° — not too deep, not too stiff",
+            "A visible knee bend in the dip (FormCheck targets 100°–145°, a coaching convention)",
             "Weight balanced evenly on both feet"
         )
     ),
@@ -85,19 +85,19 @@ private val tutorialSteps = listOf(
     ),
     TutorialStep(
         title = "Set Point & Elbow Alignment",
-        description = "Bring the ball up to your set point — at or just above your forehead. Your shooting elbow should be directly under the ball, forming an \"L\" shape (roughly 90°). The elbow should point toward the basket, not flare out to the side.",
+        description = "Bring the ball up to your set point — at or just above your forehead. Your shooting elbow should be directly under the ball, forming roughly an \"L\" shape. The elbow should point toward the basket, not flare out to the side.",
         tips = listOf(
             "Set point at or above forehead level for a quick, high release",
-            "Elbow forms a 90° angle (the \"L\")",
+            "Elbow roughly in an \"L\" (FormCheck targets 70°–100°, a coaching convention; shooters vary)",
             "Elbow tucked in — aligned under the wrist and ball",
             "Keep the ball in front of you, not behind your head"
         )
     ),
     TutorialStep(
         title = "The Release & Follow-Through",
-        description = "Extend your arm fully toward the basket. Snap your wrist forward, releasing the ball off your index and middle fingers. Your elbow should finish fully extended (150°–180°). Hold your follow-through — your wrist should be relaxed and your fingers pointing down toward the rim (\"gooseneck\").",
+        description = "Extend your arm fully toward the basket. Snap your wrist forward, releasing the ball off your index and middle fingers. Your elbow should finish close to fully extended. Hold your follow-through — your wrist should be relaxed and your fingers pointing down toward the rim (\"gooseneck\").",
         tips = listOf(
-            "Full arm extension — elbow finishes at 150°–180°",
+            "Near-full extension at release (FormCheck targets 160°–180°, a coaching convention)",
             "Ball rolls off index and middle fingers last",
             "Snap the wrist — fingers point down at the rim",
             "Hold the follow-through until the ball hits the rim",
@@ -106,9 +106,9 @@ private val tutorialSteps = listOf(
     ),
     TutorialStep(
         title = "Arc & Aim",
-        description = "A good shot has a high arc — roughly 45°–52° launch angle. Aim for the back of the rim or just over the front. Higher arc gives the ball a larger \"window\" to go through the hoop. Flat shots have a much smaller margin for error.",
+        description = "A good shot has a high arc. Physics (Brancazio, 1981) puts the lowest-effort launch angle at about 45° plus half the angle up to the rim, roughly 48°–53° for most shots. Aim for the back of the rim or just over the front. Higher arc gives the ball a larger \"window\" to go through the hoop. Flat shots have a much smaller margin for error.",
         tips = listOf(
-            "Aim for a 45°–52° arc",
+            "FormCheck targets a 46°–55° release angle (physics-based) and about 45° entry angle (Noah Basketball data)",
             "Higher arc = bigger target window",
             "Pick a consistent aim point (back of rim, center of hoop)",
             "Flat shots are harder to make — get it up!"
@@ -119,12 +119,13 @@ private val tutorialSteps = listOf(
 private data class FilmingTip(val text: String)
 
 private val filmingTips = listOf(
-    FilmingTip("Film from a 45° angle on your shooting-hand side for best results"),
+    FilmingTip("Film from the side (90° to your shot) for knees, elbow and arc, or from the front for elbow alignment and guide hand"),
+    FilmingTip("Avoid a 45° angle: it gives the fewest reliable measurements"),
     FilmingTip("Get your full body in frame — head to feet"),
     FilmingTip("Use good lighting and a plain background"),
-    FilmingTip("Set the camera at waist height, about 8–10 feet away"),
+    FilmingTip("Set the camera at waist height, about 8–12 feet away (the pose model is specified for up to about 13 feet)"),
     FilmingTip("Use a tripod or prop your phone up — steady footage matters"),
-    FilmingTip("Record one shot at a time for the most accurate analysis")
+    FilmingTip("Use 60 fps or more if your phone offers it; a release lasts about a tenth of a second")
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -347,36 +348,23 @@ fun TutorialScreen(onBack: () -> Unit) {
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        MetricExplainer(
-                            name = "Elbow Extension",
-                            target = "150°–180°",
-                            explanation = "How fully you extend your arm at release"
-                        )
-                        MetricExplainer(
-                            name = "Elbow Alignment",
-                            target = "Score ≥ 80",
-                            explanation = "Whether your elbow stays under the ball (not flaring out)"
-                        )
-                        MetricExplainer(
-                            name = "Knee Bend",
-                            target = "100°–160°",
-                            explanation = "How much you load your legs for power"
-                        )
-                        MetricExplainer(
-                            name = "Set Point Height",
-                            target = "At or above forehead",
-                            explanation = "Where you hold the ball before releasing"
-                        )
-                        MetricExplainer(
-                            name = "Balance",
-                            target = "Score ≥ 80",
-                            explanation = "Hips centered over feet during the shot"
-                        )
-                        MetricExplainer(
-                            name = "Guide Hand",
-                            target = "Score ≥ 80",
-                            explanation = "How passive your off-hand stays at release"
-                        )
+                        listOf(
+                            com.meuxo.formcheck.domain.model.MetricId.RELEASE_ANGLE, com.meuxo.formcheck.domain.model.MetricId.ENTRY_ANGLE,
+                            com.meuxo.formcheck.domain.model.MetricId.ELBOW_RELEASE, com.meuxo.formcheck.domain.model.MetricId.ELBOW_SET,
+                            com.meuxo.formcheck.domain.model.MetricId.KNEE_BEND, com.meuxo.formcheck.domain.model.MetricId.ELBOW_FLARE,
+                            com.meuxo.formcheck.domain.model.MetricId.GUIDE_HAND, com.meuxo.formcheck.domain.model.MetricId.TRUNK_LEAN,
+                            com.meuxo.formcheck.domain.model.MetricId.FOLLOW_THROUGH, com.meuxo.formcheck.domain.model.MetricId.BALANCE_DRIFT
+                        ).forEach { id ->
+                            val r = com.meuxo.formcheck.scoring.ScoringConfig.targets[id] ?: return@forEach
+                            val u = id.unit.symbol
+                            MetricExplainer(
+                                name = id.displayName,
+                                target = "${r.low.toInt()}$u–${if (r.high >= 10_000) "∞" else r.high.toInt().toString() + u}",
+                                explanation = id.description + " (" + r.kind.label + ")"
+                            )
+                        }
+                        Text("Release height, arc apex and timing have no ideal value; FormCheck tracks how consistent they are instead.",
+                            style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

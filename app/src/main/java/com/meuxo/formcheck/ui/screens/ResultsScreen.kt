@@ -137,6 +137,19 @@ fun ResultsScreen(
                     onMetricTap = { m -> onPlayback(m.evidence?.keyFrame, m, m.shotIndex) }
                 )
             }
+            val recs = com.meuxo.formcheck.scoring.DrillRecommendations.forMetrics(dashMetrics + r.metrics)
+            if (recs.isNotEmpty()) item {
+                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Recommended drills", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        recs.forEach { (m, d) ->
+                            Text("${d.name} (for ${m.id.displayName.lowercase()}, ${m.score}%)", fontWeight = FontWeight.SemiBold)
+                            Text(d.description, style = MaterialTheme.typography.bodySmall)
+                            Text(d.reps, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
             if (perShot && r.metrics.isNotEmpty()) {
                 item { Text("Across the session", style = MaterialTheme.typography.titleMedium) }
                 r.metrics.forEach { m ->

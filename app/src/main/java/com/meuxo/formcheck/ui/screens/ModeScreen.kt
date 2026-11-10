@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -94,15 +95,15 @@ fun ModeScreen(
             Text("Filming", style = MaterialTheme.typography.titleMedium)
             type.filmingGuide().forEach { Text("• $it") }
             Spacer(Modifier.height(8.dp))
-            if (onLive != null) Button(onClick = onLive, enabled = !busy, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            if (onLive != null) Button(onClick = onLive, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
                 Icon(Icons.Default.Videocam, null); Spacer(Modifier.size(8.dp)); Text("Live session (records too)")
             }
-            Button(onClick = onRecord, enabled = !busy, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+            Button(onClick = onRecord, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
                 Icon(Icons.Default.Videocam, null); Spacer(Modifier.size(8.dp)); Text(if (onLive != null) "Record, analyze after" else "Record")
             }
             OutlinedButton(
                 onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
-                enabled = !busy, modifier = Modifier.fillMaxWidth().height(56.dp)
+                enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
             ) { Icon(Icons.Default.Upload, null); Spacer(Modifier.size(8.dp)); Text("Upload a video") }
             if (busy) Column { CircularProgressIndicator(); Text("Copying video into the app…") }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

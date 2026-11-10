@@ -63,6 +63,8 @@ object Routes {
     const val PROGRESS = "progress"
     const val TUTORIAL = "tutorial"
     const val LIVE = "live/{type}?drill={drill}"
+    const val SETTINGS = "settings"
+    const val COMPARE = "compare/{id}"
     const val CALIBRATE = "calibrate/{id}?from={from}"
 
     fun mode(t: SessionType) = "mode/${t.name}"
@@ -115,7 +117,7 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
                 onLibrary = { nav.navigate(Routes.LIBRARY) },
                 onProgress = { nav.navigate(Routes.PROGRESS) },
                 onTutorial = { nav.navigate(Routes.TUTORIAL) },
-                onSettings = { nav.navigate(Routes.ONBOARDING) }
+                onSettings = { nav.navigate(Routes.SETTINGS) }
             )
         }
         composable(Routes.MODE, listOf(navArgument("type") { type = NavType.StringType })) { e ->
@@ -156,6 +158,7 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
             ResultsScreen(
                 onBack = { nav.popBackStack() },
                 onPlayback = { f, m, shot -> nav.navigate(Routes.playback(id, f, m?.id?.name, shot)) },
+                onCompare = { nav.navigate("compare/$id") },
                 typeSections = { r, st, vm, selectShot ->
                     when (r.type) {
                         SessionType.SHOOTAROUND -> ShootaroundSections(r, st, vm, selectShot,
@@ -196,6 +199,8 @@ fun NavGraph(settingsVm: SettingsViewModel = hiltViewModel()) {
             val id = e.arguments!!.getLong("id")
             CalibrationScreen(id, e.arguments!!.getInt("from"), onDone = { nav.navigate(Routes.analysis(id)) { popUpTo(Routes.HOME) } })
         }
+        composable(Routes.SETTINGS) { com.meuxo.formcheck.ui.screens.SettingsScreen(onBack = { nav.popBackStack() }) }
+        composable(Routes.COMPARE, idArg) { com.meuxo.formcheck.ui.screens.CompareScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.LIBRARY) { LibraryScreen(onBack = { nav.popBackStack() }, onOpen = { nav.openSession(it) }) }
         composable(Routes.PROGRESS) { ProgressScreen(onBack = { nav.popBackStack() }) }
         composable(Routes.TUTORIAL) { TutorialScreen(onBack = { nav.popBackStack() }) }
