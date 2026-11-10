@@ -152,9 +152,15 @@ class TrackedClip(
     val rim: RimObs?,
     /** Frame index at which the rim moved (camera moved), or null. */
     val rimMovedAtFrame: Int? = null,
-    /** Capture frame rate if the container declared one (slow-motion files), else null. */
-    val declaredCaptureFps: Double? = null
+    /**
+     * Real seconds per media second. 1.0 for normal video; below 1 for slow-motion files whose
+     * container plays back slower than real time. Frame times are always real time; playback
+     * divides by this to get the media position.
+     */
+    val timeScale: Double = 1.0
 ) {
+    fun mediaTimeUs(frame: Int): Long = ((frames[frame].timeUs - frames[0].timeUs) / timeScale).toLong()
+
     /** Median frame rate derived from real timestamps. */
     val fps: Double by lazy {
         if (frames.size < 2) 0.0 else {

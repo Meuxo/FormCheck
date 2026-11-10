@@ -5,9 +5,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 
 /**
- * Analysis classes are all @Singleton with @Inject constructors, so Hilt
- * provides them automatically. This module is a placeholder for future
- * @Provides bindings (e.g. swapping in a fake PoseEstimator under test).
+ * Analyzers and trackers have @Inject constructors, so Hilt provides them directly. Pure
+ * analysis classes (tracking/, analysis/, scoring/, shootaround/, dribble/, jump/) take plain
+ * data and are unit tested without DI; this module is where test doubles would be bound.
  */
 @Module
 @InstallIn(SingletonComponent::class)

@@ -1,95 +1,113 @@
 package com.meuxo.formcheck.data.repository
 
+import com.meuxo.formcheck.data.local.MetricEntity
 import com.meuxo.formcheck.data.local.SessionDao
 import com.meuxo.formcheck.data.local.SessionEntity
-import com.meuxo.formcheck.domain.model.AnalysisResult
-import com.meuxo.formcheck.domain.model.PhaseFeedback
+import com.meuxo.formcheck.data.local.ShotEntity
+import com.meuxo.formcheck.data.storage.SessionFiles
+import com.meuxo.formcheck.domain.model.Metric
+import com.meuxo.formcheck.domain.model.MetricId
 import com.meuxo.formcheck.domain.model.Session
-import com.meuxo.formcheck.domain.model.ShotPhase
+import com.meuxo.formcheck.domain.model.SessionParams
+import com.meuxo.formcheck.domain.model.SessionResult
+import com.meuxo.formcheck.domain.model.SessionStatus
+import com.meuxo.formcheck.domain.model.SessionType
+import com.meuxo.formcheck.domain.model.ShotOutcome
 import com.meuxo.formcheck.domain.repository.SessionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import org.json.JSONArray
-import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class SessionRepositoryImpl @Inject constructor(
-    private val dao: SessionDao
+    private val dao: SessionDao,
+    private val files: SessionFiles
 ) : SessionRepository {
 
-    override suspend fun saveSession(result: AnalysisResult): Long {
-        val entity = SessionEntity(
-            timestamp = result.timestamp,
-            mediaUri = result.mediaUri,
-            overallScore = result.overallScore,
-            elbowFlareScore = result.elbowFlareScore,
-            elbowAngleAtRelease = result.elbowAngleAtRelease,
-            kneeBendDepth = result.kneeBendDepth,
-            balanceScore = result.balanceScore,
-            guideHandScore = result.guideHandScore,
-            phaseFeedbackJson = encode(result.phaseFeedback)
+    override fun observeAll(type: SessionType?): Flow<List<Session>> =
+        (if (type == null) dao.observeAll() else dao.observeByType(type.name)).map { l -> l.map { it.toDomain() } }
+
+    override fun observe(id: Long): Flow<Session?> = dao.observeSession(id).map { it?.toDomain() }
+
+    override suspend fun get(id: Long): Session? = dao.getSession(id)?.toDomain()
+
+    override suspend fun create(params: SessionParams, title: String?): Long {
+        val id = dao.insertSession(
+            SessionEntity(
+                timestamp = System.currentTimeMillis(), type = params.type.name, title = title,
+                status = SessionStatus.IMPORTING.name, statusMessage = null, dirPath = null, mediaPath = null,
+                trackPath = null, thumbPath = null, resultPath = null, overallScore = null, includedMetrics = null,
+                totalMetrics = null, makes = null, attempts = null, durationMs = null, sizeBytes = null,
+                analyzedAt = null, legacyMediaUri = null, legacyJson = null
+            )
         )
-        return dao.insertSession(entity)
+        files.writeParams(id, params)
+        return id
     }
 
-    override fun getSession(id: Long): Flow<Session?> =
-        dao.getSession(id).map { it?.toDomain() }
+    override suspend fun setMedia(id: Long, sizeBytes: Long, durationMs: Long?) {
+        dao.setMedia(id, files.dir(id).absolutePath, files.media(id).absolutePath, sizeBytes, durationMs)
+        dao.setStatus(id, SessionStatus.PENDING.name, null)
+    }
 
-    override fun getRecentSessions(limit: Int): Flow<List<Session>> =
-        dao.getRecentSessions(limit).map { list -> list.map { it.toDomain() } }
+    override suspend fun setStatus(id: Long, status: SessionStatus, message: String?) =
+        dao.setStatus(id, status.name, message)
 
-    override fun getAllSessions(): Flow<List<Session>> =
-        dao.getAllSessions().map { list -> list.map { it.toDomain() } }
+    override suspend fun saveAnalysis(id: Long, result: SessionResult, hasThumb: Boolean) {
+        files.writeResult(id, result)
+        val ts = dao.getSession(id)?.timestamp ?: System.currentTimeMillis()
+        val metricRows = (result.metrics + result.shots.flatMap { it.metrics }).map { it.toEntity(id, ts) }
+        val shotRows = result.shots.map { s ->
+            ShotEntity(sessionId = id, shotIndex = s.index, startFrame = s.startFrame, releaseFrame = s.releaseFrame,
+                endFrame = s.endFrame, outcome = s.outcome?.name, outcomeCorrected = s.outcomeCorrected,
+                courtX = s.courtX, courtY = s.courtY, zone = s.zone?.name, overallScore = s.overall?.percent)
+        }
+        dao.replaceAnalysis(id, metricRows, shotRows)
+        dao.setResult(
+            id = id, status = SessionStatus.DONE.name, track = files.track(id).absolutePath,
+            thumb = if (hasThumb) files.thumb(id).absolutePath else null, result = files.result(id).absolutePath,
+            overall = result.overall.percent, included = result.overall.included, total = result.overall.total,
+            makes = result.metrics.firstOrNull { it.id == MetricId.MAKES }?.value?.toInt(),
+            attempts = result.metrics.firstOrNull { it.id == MetricId.ATTEMPTS }?.value?.toInt(),
+            size = files.sizeOf(id), analyzedAt = System.currentTimeMillis()
+        )
+    }
 
-    override suspend fun deleteSession(id: Long) = dao.deleteSession(id)
+    override suspend fun rename(id: Long, title: String?) = dao.rename(id, title?.takeIf { it.isNotBlank() })
 
-    // ---- Mapping helpers --------------------------------------------------
+    override suspend fun delete(id: Long) {
+        dao.deleteSession(id)
+        files.delete(id)
+    }
 
-    private fun SessionEntity.toDomain(): Session = Session(
-        id = id,
-        timestamp = timestamp,
-        mediaUri = mediaUri,
-        overallScore = overallScore,
-        elbowFlareScore = elbowFlareScore,
-        elbowAngleAtRelease = elbowAngleAtRelease,
-        kneeBendDepth = kneeBendDepth,
-        balanceScore = balanceScore,
-        guideHandScore = guideHandScore,
-        phaseFeedback = decode(phaseFeedbackJson)
+    override suspend fun correctOutcome(id: Long, shotIndex: Int, outcome: ShotOutcome) {
+        dao.correctOutcome(id, shotIndex, outcome.name)
+        val r = files.readResult(id) ?: return
+        val shots = r.shots.map { if (it.index == shotIndex) it.copy(outcome = outcome, outcomeCorrected = true) else it }
+        saveAnalysis(id, r.copy(shots = shots), files.thumb(id).exists())
+    }
+
+    override fun observeTotalBytes(): Flow<Long> = dao.observeTotalBytes()
+    override fun observeCorrectionCount(): Flow<Int> = dao.observeCorrectionCount()
+    override fun observeMetricHistory(metricId: String) = dao.observeMetricHistory(metricId)
+    override fun observeAllMeasuredMetrics() = dao.observeAllMeasuredMetrics()
+    override fun observeAllShots() = dao.observeAllShots()
+
+    private fun Metric.toEntity(sessionId: Long, ts: Long) = MetricEntity(
+        sessionId = sessionId, timestamp = ts, shotIndex = shotIndex, metricId = id.name, value = value,
+        unit = unit.name, confidence = confidence, score = score, frameStart = evidence?.frameStart,
+        frameEnd = evidence?.frameEnd, keyFrame = evidence?.keyFrame, reason = notMeasuredReason, note = note
     )
 
-    private fun encode(feedback: List<PhaseFeedback>): String {
-        val arr = JSONArray()
-        feedback.forEach { f ->
-            val obj = JSONObject()
-            obj.put("phase", f.phase.name)
-            obj.put("score", f.score)
-            val notes = JSONArray()
-            f.notes.forEach { notes.put(it) }
-            obj.put("notes", notes)
-            arr.put(obj)
-        }
-        return arr.toString()
-    }
-
-    private fun decode(json: String): List<PhaseFeedback> {
-        if (json.isBlank()) return emptyList()
-        return try {
-            val arr = JSONArray(json)
-            (0 until arr.length()).map { i ->
-                val obj = arr.getJSONObject(i)
-                val notesArr = obj.getJSONArray("notes")
-                val notes = (0 until notesArr.length()).map { notesArr.getString(it) }
-                PhaseFeedback(
-                    phase = ShotPhase.valueOf(obj.getString("phase")),
-                    score = obj.getInt("score"),
-                    notes = notes
-                )
-            }
-        } catch (t: Throwable) {
-            emptyList()
-        }
-    }
+    private fun SessionEntity.toDomain() = Session(
+        id = id, timestamp = timestamp,
+        type = runCatching { SessionType.valueOf(type) }.getOrDefault(SessionType.FORM),
+        title = title,
+        status = runCatching { SessionStatus.valueOf(status) }.getOrDefault(SessionStatus.FAILED),
+        statusMessage = statusMessage, mediaPath = mediaPath, thumbPath = thumbPath, resultPath = resultPath,
+        trackPath = trackPath, overallScore = overallScore, includedMetrics = includedMetrics,
+        totalMetrics = totalMetrics, makes = makes, attempts = attempts, durationMs = durationMs,
+        sizeBytes = sizeBytes, legacyMediaUri = legacyMediaUri
+    )
 }

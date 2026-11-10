@@ -140,7 +140,6 @@ dependencies {
 
     // MediaPipe Tasks (pose landmarker + object detector), fully on-device
     implementation(libs.mediapipe.tasks.vision)
-    implementation(libs.mlkit.pose.detection.accurate) // v1 pipeline, removed in phase 3
 
     // Room
     implementation(libs.androidx.room.runtime)

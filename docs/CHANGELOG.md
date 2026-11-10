@@ -73,3 +73,46 @@ and what could not be completed and why.
   androidx.hilt 1.3.0, Hilt 2.57.2) until a separate AGP 9 migration, which changes the Kotlin
   plugin setup and deserves its own change.
 - `targetSdk` stays 34 to avoid unrelated behaviour changes (edge-to-edge enforcement at 35).
+
+## Phase 3: Saved sessions and Library
+
+**Done**
+- The app now runs on the v2 pipeline. The v1 analysis classes, ML Kit, and the placeholder-score
+  UI (PhaseCard, SkeletonOverlay, v1 Analysis/Results screens) are removed.
+- Media is copied into `filesDir/sessions/{id}/source.mp4` on import and on record (recordings go
+  to cache, then are moved in). Picker URIs are never the only copy. The folder also holds
+  `params.json`, `track.bin.gz` (per-frame landmarks and ball, gzipped binary `TrackCodec`),
+  `thumb.jpg` and `result.json`.
+- Room v2: `sessions` (type, status, file paths, overall score with N of M, makes/attempts,
+  size), `metrics` (every metric with value, unit, confidence, score, frame evidence, reason),
+  `shots`. `MIGRATION_1_2` keeps v1 rows as LEGACY sessions: date and URI survive, the v1
+  numbers go to `legacyJson`, and no v1 number is shown as a score (the audit found placeholders).
+- `AnalysisWorker`: foreground WorkManager job (dataSync type) with progress notification and
+  progress in the UI. Leaving the screen does not cancel it.
+- Screens: onboarding (shooting hand and height), Home with modes, mode screen with filming
+  guidance, capture at the highest supported frame rate up to 60 fps (high-speed session for the jump
+  test when supported), person picker when several people are in frame, analysis progress,
+  results list, Library (thumbnails, filter by type, rename, delete with confirmation, storage
+  used), Playback that draws skeleton, ball trail, fitted arc and angle labels live from saved
+  landmarks (each toggleable), 0.25×/0.5×/1× speed, frame stepping, and evidence frame jump.
+- Annotated MP4 export with Media3 Transformer (`CanvasOverlay`), shared through FileProvider only
+  when the user taps Share.
+- `INTERNET` is stripped from the merged manifest with `tools:node="remove"`.
+- Photo upload is removed (picker is video-only). A still frame cannot show dip, release or
+  follow-through, so every v2 form metric would be "Not measured".
+
+**Verified**
+- `assembleDebug` succeeds. 31 unit tests pass, including:
+  - `MigrationTest` (Robolectric): builds a real v1 database from the committed `1.json`,
+    inserts v1 rows, opens it with Room v2 and the migration (Room validates the schema on open),
+    checks legacy rows, the absence of v1 scores, and cascade deletes on the new tables.
+  - `TrackCodecTest`: round trip of 50 frames with gaps, exact image coordinates, world
+    coordinates within 0.6 mm, the rim, the time scale, and the result JSON.
+- Merged debug manifest checked: no `android.permission.INTERNET`.
+
+**Not completed / notes**
+- Not run on a phone or emulator: this machine has no emulator system image. Camera capture,
+  MediaCodec decoding, the GPU delegate, WorkManager foreground execution and Transformer export
+  compile but were not exercised at runtime here.
+- The export overlay assumes Transformer hands the overlay upright frames. Rotated source files
+  need a check on a device.

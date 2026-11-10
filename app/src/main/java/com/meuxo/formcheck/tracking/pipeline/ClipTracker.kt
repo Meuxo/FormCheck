@@ -36,8 +36,8 @@ class ClipTracker @Inject constructor(@ApplicationContext private val context: C
         val poseEveryNth: Int = 1,
         /** Normalised (0..1) point on the shooter chosen by the user, if several people. */
         val shooterSeed: Vec2? = null,
-        /** Rim placed by the user; overrides automatic rim detection. */
-        val rimOverride: RimObs? = null
+        /** Rim edges tapped by the user (normalised 0..1); overrides automatic rim detection. */
+        val rimTapsNorm: Pair<Vec2, Vec2>? = null
     )
 
     suspend fun track(
@@ -57,10 +57,16 @@ class ClipTracker @Inject constructor(@ApplicationContext private val context: C
         var w = 0; var h = 0
         val rimSamples = ArrayList<Pair<Int, RimObs>>()
         var lastRimSampleUs = Long.MIN_VALUE
+        var rimOverride: RimObs? = null
 
         try {
             decoder.decode(file, TrackingConfig.POSE_INPUT_LONG_SIDE) { idx, tUs, bmp ->
                 w = bmp.width; h = bmp.height
+                if (rimOverride == null && options.rimTapsNorm != null) {
+                    val (l, r) = options.rimTapsNorm
+                    rimOverride = RimObs(((l.x + r.x) / 2 * w).toFloat(), ((l.y + r.y) / 2 * h).toFloat(),
+                        (kotlin.math.abs(r.x - l.x) * w).toFloat(), 1f, com.meuxo.formcheck.tracking.RimSource.USER_TAP)
+                }
                 if (lastTarget == null && options.shooterSeed != null) {
                     lastTarget = Vec2(options.shooterSeed.x * w, options.shooterSeed.y * h)
                 }
@@ -86,7 +92,8 @@ class ClipTracker @Inject constructor(@ApplicationContext private val context: C
                     ball = tracker!!.update(t, cands.sortedByDescending { it.score })
 
                     // ---- Rim (sampled twice a second; the camera is assumed static) ----
-                    if (options.rimOverride == null && tUs - lastRimSampleUs >= 500_000) {
+                    // With a user-placed rim, samples are still taken to detect camera movement.
+                    if (tUs - lastRimSampleUs >= 500_000) {
                         lastRimSampleUs = tUs
                         val (small, s) = downscale(bmp, TrackingConfig.DETECTOR_INPUT_LONG_SIDE)
                         (learned?.detectRim(small) ?: classical.detectRim(small))?.let { r ->
@@ -104,8 +111,9 @@ class ClipTracker @Inject constructor(@ApplicationContext private val context: C
 
         val filled = if (options.poseEveryNth > 1) interpolateSkipped(raw, options.poseEveryNth) else raw
         val smoothed = LandmarkSmoother.smoothAll(filled)
-        val (rim, movedAt) = options.rimOverride?.let { it to movedAfterOverride(it, rimSamples) } ?: consensusRim(rimSamples)
-        return TrackedClip(w, h, smoothed, rim, movedAt, info.captureFps)
+        val (rim, movedAt) = rimOverride?.let { it to movedAfterOverride(it, rimSamples) } ?: consensusRim(rimSamples)
+        val timeScale = info.captureFps?.let { cap -> (info.declaredFps ?: cap) / cap } ?: 1.0
+        return TrackedClip(w, h, smoothed, rim, movedAt, timeScale)
     }
 
     /** Median of the first samples; flags the first later run of samples that disagree. */

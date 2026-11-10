@@ -18,11 +18,9 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): FormCheckDatabase =
-        Room.databaseBuilder(
-            context,
-            FormCheckDatabase::class.java,
-            "formcheck.db"
-        ).build()
+        Room.databaseBuilder(context, FormCheckDatabase::class.java, "formcheck.db")
+            .addMigrations(*FormCheckDatabase.ALL_MIGRATIONS)
+            .build()
 
     @Provides
     fun provideSessionDao(db: FormCheckDatabase): SessionDao = db.sessionDao()
