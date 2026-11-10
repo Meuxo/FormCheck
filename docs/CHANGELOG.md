@@ -142,3 +142,45 @@ and what could not be completed and why.
 
 **Not completed / notes**
 - Visual layout was not checked on a device (no emulator here).
+
+## Phase 5: Ball and rim detection, release and arc metrics, consistency
+
+**Done**
+- `BallRimDetector` with a learned implementation (MediaPipe Object Detector: EfficientDet-Lite0
+  "sports ball", or a drop-in `ball_rim.tflite` with ball and rim classes) and a classical no-ML
+  implementation (colour segmentation, circle fit, motion gating), with automatic fallback when
+  the model is missing or its score is low. `BallKalmanTracker` rejects physically impossible jumps.
+- Rim: two user taps on the rim edges (most accurate), else the learned rim class, else the
+  classical detector. The rim is median-filtered over the first samples and re-checked twice a
+  second to flag camera movement.
+- Ball-based shot events in `ShotEventDetector`: release is the first frame the ball surface is
+  more than half a diameter from the shooting hand and keeps moving away and up, from above the
+  shoulder (this replaces the v1 wrist-extension guess). Dip is the lowest held ball position.
+  Set point is the most bent shooting elbow between dip and release.
+- Release angle, arc apex and entry angle come from a RANSAC projectile fit. Confidence falls
+  with the RMS residual relative to ball radius and with the outlier share; a noisy fit
+  (confidence < 0.15) is reported as Not measured with the residual in the reason. Also:
+  dip-to-release timing, follow-through hold (with "clip ended while still holding" handling),
+  balance drift, landing drift.
+- Consistency score (standard deviation of release angle, release height and timing; needs 3+
+  shots) is computed for multi-shot form clips and feeds shootaround in phase 6.
+- `docs/MODELS.md`: model sources, licenses (verified as described there), training data,
+  model-card limits that affect the app, and why no custom basketball model ships.
+
+**Verified**
+- 35 unit tests pass. New: entry angle at a known rim matches projectile physics within 1°.
+  Earlier tests already cover release-frame detection, release angle, RANSAC with outliers,
+  Kalman gating and classical detection.
+- Pose model license: read directly from the official model card PDF (Apache 2.0). EfficientDet-Lite0:
+  the MediaPipe page states none, the TensorFlow Kaggle listing states Apache 2.0. MediaPipe
+  library: Apache 2.0 repository license.
+
+**Not completed / deviations**
+- No custom ball+rim model was trained or shipped (no permissively licensed one found;
+  Ultralytics YOLO is AGPL-3.0; training and validating one was not possible here). The learned
+  path uses COCO "sports ball", and the rim comes from user taps or the classical detector.
+- Scale priority deviates from the spec's literal order (rim → ball → height). With one camera,
+  the rim's scale is only valid at the rim's depth, so shooter-plane distances use ball → height,
+  and rim-plane quantities use the rim. Using the 10 ft rim height would also need the floor
+  under the rim, which is usually out of frame.
+- Detection accuracy on real footage is unmeasured until validation clips exist (phase 10).

@@ -96,6 +96,21 @@ class FormShotAnalyzerTest {
         assertTrue(v(MetricId.ENTRY_ANGLE).notMeasuredReason!!.contains("Rim"))
     }
 
+    @Test fun `entry angle at a known rim matches projectile physics`() {
+        val frames = buildShot()
+        // Put the rim where the true flight is 1.0 s after launch (descending branch).
+        val start = heldBall(Synthetic.pose(posture(trueRelease - 1)))
+        val v = launchSpeed * Synthetic.SCALE; val g = 9.81 * Synthetic.SCALE; val a = Math.toRadians(launchDeg)
+        val t = 1.0
+        val rimX = start.x + v * cos(a) * t; val rimY = start.y - v * sin(a) * t + 0.5 * g * t * t
+        val clip = com.meuxo.formcheck.tracking.TrackedClip(1000, 1000, frames,
+            com.meuxo.formcheck.tracking.RimObs(rimX.toFloat(), rimY.toFloat(), 91f, 1f, com.meuxo.formcheck.tracking.RimSource.USER_TAP))
+        val m = FormShotAnalyzer().analyze(clip, profile).shots[0].metrics.first { it.id == MetricId.ENTRY_ANGLE }
+        val expected = Math.toDegrees(kotlin.math.atan((9.81 * t - launchSpeed * sin(a)) / (launchSpeed * cos(a))))
+        assertEquals(expected, m.value!!, 1.0)
+        assertNotNull(m.score)
+    }
+
     @Test fun `front view disables side-only metrics and measures elbow alignment`() {
         val res = FormShotAnalyzer().analyze(Synthetic.clip(buildShot(Synthetic.Camera.FRONT)), profile)
         assertEquals(CameraView.FRONT, res.view!!.view)
